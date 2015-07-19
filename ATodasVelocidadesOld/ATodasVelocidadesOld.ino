@@ -105,8 +105,6 @@ void setup()
     Wire.endTransmission();
 } 
 
- // *************** GESTION DEL PENDULO ***************
-
 void loop()
 {  
   
