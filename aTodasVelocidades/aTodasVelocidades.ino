@@ -33,7 +33,7 @@ Salida PWM para controlar un modulo basado en controlador en puente L298
 int amplitud, amplitud_max= 38;
 
 // Define entradas y salidas
-const int SWInner = 2;       // Entrada de la barrera optica de referencia 
+const int SWInner = 7;       // Entrada de la barrera optica de referencia 
                              // del pendulo
 const int LEDInner = 3;      // Indica que se activo la barrera optica de 
                              // referencia del pendulo
@@ -89,7 +89,7 @@ float t;
 float vsin;
 float pi=3.141;
 float T=1.7;
-int potR=A1;  //Entrada analogica 1, la A0 la usa el pendulo
+int potR=A3;  //Entrada analogica 1, la A0 la usa el pendulo
 int valorpot=0;
 float valor_anterior;
 float valor_media; /*Actualizo pantalla cada .5ms y calculo la media de 50 valores*/
@@ -112,6 +112,21 @@ const byte NumberLookup[20] =   {0x3F,0x06,0x5B,0x4F,0x66,
 ****************************************************************************/
 
 
+//********** LO DEL ENCODER
+
+#define encoder0PinA  2
+#define encoder0PinB  13
+
+volatile  int encoder0Pos = 0;
+int encoderAnterior;
+
+#define rstPin 12
+int maxEncoder = 160;
+boolean reset;
+
+
+
+
 
 
 void setup()
@@ -125,6 +140,9 @@ void setup()
   pinMode(ElectMag, OUTPUT);      // Salida electroiman
   pinMode(LED_Enclavado, OUTPUT); // Salida que indica modo enclavado (L1)
   
+
+  pinMode(rstPin, INPUT);        // 
+
   
   Serial.begin(115200);   
   
@@ -133,7 +151,7 @@ void setup()
     // *************** DEL 7SEG ***************
  
     Wire.begin();        /* Join I2C bus */
-    Serial.begin(9600); 
+    Serial.begin(57600); 
   
     pendiente2=(T/4)/(499);  /*Relacion entre t y el valor del potenciometro*/
     valorpot=analogRead(potR);
@@ -147,6 +165,20 @@ void setup()
     Wire.write(0);
     Wire.write(B01000111);
     Wire.endTransmission();
+    
+    
+    
+    
+    // *******  DEL ENCODER
+    
+     pinMode(encoder0PinA, INPUT); 
+  digitalWrite(encoder0PinA, HIGH);       // turn on pullup resistor
+  pinMode(encoder0PinB, INPUT); 
+  digitalWrite(encoder0PinB, HIGH);       // turn on pullup resistor
+
+  attachInterrupt(0, doEncoder, RISING);  // encoder pin on interrupt 0 - pin 2
+  Serial.println("start");                // a personal quirk
+
 
 }
 
@@ -166,19 +198,23 @@ void loop()
 
   // *************** GESTION DEL 7SEG ***************
   
-  if (lectura.check() == 1)  /*lectura es objeto tipo metro, activa cada 0.5s*/
+  
+  
+  if (lectura.check() == 1)  //lectura es objeto tipo metro, activa cada 0.5s
     {
       
         valor_anterior=analogRead(potR);
-        Serial.print(int(valor_anterior), DEC);
-        Serial.print(" ");
+        //Serial.print(int(valor_anterior), DEC);
+        //Serial.print(" ");
         valor_anterior=valor_anterior-23;
         if(valor_anterior<0) valor_anterior=0;
         valor_media = 0.0;
         i=0;
-        while(i<50)
+        
+        /*
+        while(i<5)
         {
-            if(media_valor.check()==1) /*Activa cada 10ms*/
+            if(media_valor.check()==1) //Activa cada 10ms
             {
                 valor_media=valor_anterior+valor_media;
                 valor_anterior=analogRead(potR);
@@ -187,8 +223,14 @@ void loop()
                 i++;
             }
         }
-        valor_media=valor_media/50; /*Tengo 50 valores leyendo cada 10ms.(en 500ms)*/
+        valor_media=valor_media/5; //Tengo 50 valores leyendo cada 10ms.(en 500ms)
         valorpot=int (valor_media);
+        
+        
+        
+        valorpot= analogRead(potR);
+        
+        Serial.print(" valPot : ");
         Serial.print(valorpot, DEC);
         Serial.print(" ");
         //Serial.print(valor_media, 2);
@@ -200,27 +242,55 @@ void loop()
             
         }   
         
+        */
         
         
-        t=valorpot*pendiente2;
-        vsin=(A*2*pi/T)*sin(2*pi*t/T);
+          
+        
+
+        if (reset)
+        {
+          encoder0Pos = 0;
+          reset = false;
+        }
+        
+        encoder0Pos = max(encoder0Pos, - maxEncoder);  
+        encoder0Pos = min(encoder0Pos, maxEncoder);  
+        
+        
+        valorpot = encoder0Pos;
+
+       
+        Serial.print(" reset : ");
+        Serial.print(reset);
+        Serial.print("\t");
+        Serial.print(" valPot : ");
+        Serial.print(valorpot, DEC);
+        Serial.print(" ");
+        
+        
+        
+        t=valorpot*pendiente2 * 3;
+        vsin=(A*2*pi/T)* abs(sin(2*pi*t/T));
+        Serial.print("\t");
+        Serial.print(" valPotcorr : ");
         Serial.print(valorpot,DEC);
-        Serial.print("   ");
+        Serial.print("\t");
         Serial.print(" Velocidad : ");
         Serial.print(vsin,3);
         Serial.println();
     
-        
 
-            Send7SEG(4, NumberLookup[int(vsin)%10+10]); /* Ponemos el . decimal*/
+
+            Send7SEG(4, NumberLookup[int(vsin)%10+10]); // Ponemos el . decimal
             Send7SEG(3, NumberLookup[int(vsin*10)%10]);
             Send7SEG(2, NumberLookup[int(vsin*100)%10]);
             Send7SEG(1, NumberLookup[int(vsin*1000)%10]);
             
    
+   
+   
     }
-
-
 
 
 
@@ -329,7 +399,7 @@ void ActualizaPendulo()
         T_Seguridad = T_3 + 1000;             // establece el maximo tiempo encendido del electroiman
         T_OFF       = T_Seguridad;            // establece provisionalmente el momento de apagado del electroiman
 
-       if (amplitud < amplitud_max)          // solo enciende electroiman si la amplitud es menor de la establecida
+       // if (amplitud < amplitud_max)          // solo enciende electroiman si la amplitud es menor de la establecida
         {
           digitalWrite (ElectMag, HIGH);      // Conecta el electroiman y LEDElectroMag como control
           digitalWrite (LEDElectMag, HIGH);
@@ -375,6 +445,24 @@ void Send7SEG (byte Digit, byte Number)
 
 
 
+void doEncoder() {
+  /* If pinA and pinB are both high or both low, it is spinning
+   * forward. If they're different, it's going backward.
+   *
+   * For more information on speeding up this process, see
+   * [Reference/PortManipulation], specifically the PIND register.
+   */
+  if (digitalRead(encoder0PinA) == digitalRead(encoder0PinB)) {
+    encoder0Pos++;
+  } else {
+    encoder0Pos--;
+  }
+
+
+  reset = !digitalRead (rstPin);
+  
+  //Serial.println (encoder0Pos, DEC);
+}
 
 
 

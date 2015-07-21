@@ -15,7 +15,7 @@
 // Define entradas y salidas
 const int LEDInner = 3;     // Indica que se activo la barrera optica de referencia
 const int LEDElectMag = 9;   // Indica que el electroiman esta activado
-const int SWInner = 2;      // Entrada de la barrera optica de referencia
+const int SWInner = 7;      // Entrada de la barrera optica de referencia
 const int ElectMag = 5;      // Salida que activa el electriman
 const int FinIman = 4;       // Barrera que indica que el pendulo esta cerca de la bobina
 const int LEDFinIman = 6;    // Indica que se activa barrera cerca de la bobina
@@ -246,8 +246,9 @@ void ActualizaPendulo()
       
       //parabola:107,69-t2*0,3789+t2*t2*0,003795    Valor calculado de tabla excel 
       int amplitud = 107.69 - (float(intervaloActual)*0.3789) + pow(float( intervaloActual),2) * 0.0003795;  
-      if (amplitud > controlAmplitud) bitAmplitud = HIGH;  //Control de si nos pasamos de amplitud
-      else bitAmplitud = LOW;
+      //if (amplitud > controlAmplitud) bitAmplitud = HIGH;  //Control de si nos pasamos de amplitud
+      bitAmplitud = LOW;
+      // else bitAmplitud = LOW;
       
             
       // Despues imprime los datos del ciclo completado. 
