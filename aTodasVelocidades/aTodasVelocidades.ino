@@ -12,6 +12,8 @@ Sensores de barrera optica para el pendulo a traves de placa amplificadora
 */
 
 
+// ATENCION: LEVANTAR LA PATA 3 DEL CONECTOR SENS PEND //
+
 
 int maxEncoder = 160;   // indica el valor maximo del recorrido del encoder
 int amplitud_max= 38;   // amplitud maxima de bombeo del pendulo
@@ -47,7 +49,6 @@ const int eAnalog = A3;      // Entrada analogica de ajuste
 
 // La SALIDA   6 esta reservada para indicar que se activo la barrera FinIman
 // La ENTRADA  7 esta reservada como libre1 en el conector SENS_PEND
-// la ENTRADA 12 esta reservada como libre2 en el conector SENS_PEND
 
 
 int amplitud;
@@ -65,10 +66,12 @@ float posicion;
 // ************* Variables display 7 Segmentos ***********
 #define _7SEG (0x38)   /* I2C address for 7-Segment */
   // valores de los 9 digitos sin y con punto decimal
-const byte NumberLookup[20] =   {0x3F,0x06,0x5B,0x4F,0x66,
-                                 0x6D,0x7D,0x07,0x7F,0x6F,0xBF,
-                                 0x86,0x77,0x7C,0x39,0x5E,0x79,0x71,
-                                 0x80,0x40};
+const byte NumberLookup[34] =   {
+  0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x6F,  // digitos de 0 a 9
+  0xBF,0x86,0xDB,0xCF,0xE6,0xED,0xFD,0x87,0xFF,0xEF,  // digitos con punto
+  0x77,0x7C,0x39,0x5E,0x79,0x71,                      // A,B,C,D,E,F
+  0x00,0x40,0x63,0xE3,                  // espacio, guion, cuadro alto, cuadro bajo
+  0x80,0xC0,0x5C,0xDC};                 // idem con punto
 
 /***************************************************************************
  Function Name: setup
@@ -114,8 +117,13 @@ void setup()
 
   attachInterrupt(0, doEncoder, RISING);  // encoder pin on interrupt 0 - pin 2
 
+  // Escribe algo que no es un numero en el display
+  Send7SEG (4, NumberLookup [28]);
+  Send7SEG (3, NumberLookup [29]);
+  Send7SEG (2, NumberLookup [28]);
+  Send7SEG (1, NumberLookup [29]);
 
-  Serial.println("Set Up Completo");                // a personal quirk
+  Serial.println("Set Up Completo");  
 }
 
 
@@ -143,19 +151,36 @@ void loop()
     encoderPos = max(encoderPos, - maxEncoder);
     encoderPos = min(encoderPos,   maxEncoder);
     
-    posicion  = encoderPos;
-    velocidad = posicion;
+    // Calcula la posicion del cursor asumiendo un recorrido total de 100 cm y 10 vueltas (320 pulsos)
+    posicion  = 100.0 * float(encoderPos) / 320;
+    
+    if ((amplitud > 24) && (amplitud < 46))
+    {
+      if (abs(posicion) > amplitud)
+      {
+        velocidad = 9.999;
+      }
+      else
+      {
+        float velMaxima = 1.25;
+        velocidad = velMaxima * pow((1.0 - pow(posicion/amplitud, 2.0)), 0.5);
+      }
+    }
+    else velocidad = -99;
+    
+    
+    // velocidad = posicion;
  
     
     
     encoderPosAnt = encoderPos;
  
-    Serial.print(" encoder : ");
+    Serial.print(" encoderPos : ");
     Serial.print(encoderPos, DEC);
  
     Serial.print("\t");
     Serial.print(" posicion cursor : ");
-    Serial.print(posicion,DEC);
+    Serial.print(posicion,3);
         
     Serial.print("\t");
     Serial.print(" velocidad : ");
@@ -165,6 +190,9 @@ void loop()
     
     Serial.print (" numero de bits enviados a Wire= ");
     Serial.println ( Escribe7SEG (velocidad));
+    
+    
+    
   }
 }
 
@@ -209,7 +237,8 @@ void ActualizaPendulo()
   static unsigned long T_0, T_1, T_2, T_3; 
   static int T_zona_0, T_zona_1, T_zona_2, T_zona_3; 
   static unsigned long T_ON, T_Seguridad, T_OFF; 
-  int extraT_ON;
+  static int extraT_ON;
+  static int erroresSensor;
   unsigned long milisegundos;  
 
       // Recoge el valor de millis() en cada llamada a la funcion
@@ -226,29 +255,26 @@ void ActualizaPendulo()
   //     permanecio el pendulo en la zona. Limita el valor registrado de permanencia en cada 
   //     zona a 10.000 por conpatibilidad con el tipo int 
 
+
+ 
+// Gestiona el funcionamiento del pendulo en cada zona 
+ 
+ 
+  
   switch (zona) {
 
     case 0:
       //zona = 0 es la zona opuesta al sensor de control. 
-           
       // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
            //         Al entrar en esta zona se establece el momento de desconexion del electroiman
            if (zonaAnterior != zona)
            {
-             // extraT_ON = T_zona_3 / 6;
-             extraT_ON = map (analogRead (pot1), 0, 1023, 100, 0);
+             // extraT_ON = T_zona_3 / 6 * map (analogRead (pot1), 0, 1023, 200, 100)/100.0;
+             // extraT_ON = T_zona_3 / 6 * (max (min(T_zona_2, 650), 550) - 260)* 0.005;
+             extraT_ON = 31;
         
              // establece el valor  para T_OFF
              T_OFF     = T_0 + extraT_ON;
-           }
- 
-      // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-           //         De esta zona se sale con un pulso del detector central
-           if (pulsoCentro)
-           {
-             T_1 = milisegundos;  
-             T_zona_0 = min (10000, T_1 - T_0); 
-             zona = 1;
            }
      break;
 
@@ -256,16 +282,24 @@ void ActualizaPendulo()
  
      case 1:
        // zona = 1 desde el paso por el centro hasta la llegada al sensor de control. 
-               
        // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
        // Al entrar en esta zona se establece el momento de desconexion del electroiman
            if (zonaAnterior != zona)
            {
-             amplitud = 0.0002 * T_zona_2 * T_zona_2 - 0.1472 * T_zona_2 + 49.125;
              periodoPendulo = T_zona_0 + T_zona_1 + T_zona_2 + T_zona_3;
              T_Pendulo = T_0;            // corresponde al momento del paso por el centro en direccion 
                                          // contraria a la zona del sensor de control
-
+             
+             int amplitudCalculada = 0.0002 * T_zona_2 * T_zona_2 - 0.1472 * T_zona_2 + 49.125;
+             
+             // Si falla alguno de los sensores y elperiodo registrado es excesivo no se tiene 
+             //    en cuenta para el calculo de amplitud. Se incrementa el contador de errores
+             erroresSensor ++;
+             if (periodoPendulo < 2000) 
+             {
+               erroresSensor = 0;
+               amplitud = amplitudCalculada;
+             }
 
              texto = "|  PerPend = " + String(T_zona_0 + T_zona_1 + T_zona_3) + " + " + T_zona_2;
              texto = texto + " = " + periodoPendulo;
@@ -273,48 +307,31 @@ void ActualizaPendulo()
              texto = texto + "\tTpendulo = " + T_Pendulo;
 
              texto = texto + "\tT_iman =  " + T_zona_3 + " +" + extraT_ON;
-
-             texto = texto + "\t >> amplitud = " + amplitud + " (" + amplitud_max + ")";
-
-
+             
+             if (periodoPendulo < 2000) 
+             {
+               texto = texto + "\t >> amplitud = " + amplitud + " (" + amplitud_max + ")";
+             }
+             else
+             {
+               texto = texto + "\t >> Error sensores (" + erroresSensor + " (err)";
+             }
+             
+             // ***** SOLO CONTROL. BORRAR AL FINAL   *****
              Serial.println("--------------------------------");
              Serial.println (texto);
-             Serial.print ("    pot 1= "); Serial.println (analogRead (pot1)); 
+             Serial.print ("    pot 1= "); Serial.print (analogRead (pot1)); Serial.print (" factor "); 
+             Serial.println (min((T_zona_2 -260), 400) * 0.005, 3); 
              Serial.println ("--------------------------------");
 
              Serial.print   ("tiempo de impresion = ");
              Serial.println (millis () - T_1);
            }
-
-
-      // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-      // De esta zona se sale con un pulso del detector lateral
-           if (pulsoControl)
-           {
-             T_2 = milisegundos; 
-             T_zona_1 = min (10000, T_2 - T_1); 
-             zona = 2;
-           }
-       break;
+    break;
  
-    case 2:
-    // zona = 2 es la zona mas alla del sensor de control. El timepo en esta zona se usa para 
-    // estimar la amplitud del movimiento del pendulo.
- 
-      // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-      // De esta zona se sale con un pulso del detector lateral
-           if (pulsoControl)
-           {
-             T_3 = milisegundos;  
-             T_zona_2 = min (10000, T_3 - T_2); 
-             zona = 3;
-           }
-      break;
-      
     case 3:
     // zona = 3 es la zona entre el sensor de control y el centro. EN ESTA ZONA SE PRODUCE LA 
     //ACTIVACION DEL ELECTROIMAN
- 
       // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
         // AL ENTRAR EN ZONA 3 SE PRODUCE LA ACTIVACION DEL ELECTROIMAN
            if (zonaAnterior != zona)
@@ -332,7 +349,63 @@ void ActualizaPendulo()
                    digitalWrite (LEDElectMag, HIGH);
                  }
             }
+             
+    break;
+  }
 
+
+// GESTIONA EL CAMBIO DE ZONAS
+//   *** Ejecuta las transiciones entre las zonas en funcion de los detectores opticos
+//       En cada cambio de zona registra la marca de tiempo (millis) de salida
+//       y el tiempo que permanecio en esa zona. El tiempo de permanencia queda limitado a 
+//       10000 ms para evitar desbordar la variable tipo int.
+    zonaAnterior = zona;
+
+  switch (zona) {
+
+    case 0:
+      //zona = 0 es la zona opuesta al sensor de control.
+      // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+           //         De esta zona se sale con un pulso del detector central
+           if (pulsoCentro)
+           {
+             T_1 = milisegundos;  
+             T_zona_0 = min (10000, T_1 - T_0); 
+             zona = 1;
+           }
+     break;
+
+
+ 
+     case 1:
+       // zona = 1 desde el paso por el centro hasta la llegada al sensor de control. 
+      // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+      // De esta zona se sale con un pulso del detector lateral
+           if (pulsoControl)
+           {
+             T_2 = milisegundos; 
+             T_zona_1 = min (10000, T_2 - T_1); 
+             zona = 2;
+           }
+     break;
+ 
+    case 2:
+    // zona = 2 es la zona mas alla del sensor de control. El timepo en esta zona se usa para 
+    // estimar la amplitud del movimiento del pendulo. 
+      // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+      // De esta zona se sale con un pulso del detector lateral
+           if (pulsoControl)
+           {
+             T_3 = milisegundos;  
+             T_zona_2 = min (10000, T_3 - T_2); 
+             zona = 3;
+           }
+      break;
+      
+    case 3:
+    // zona = 3 es la zona entre el sensor de control y el centro. EN ESTA ZONA SE PRODUCE LA 
+    //ACTIVACION DEL ELECTROIMAN
+ 
      // *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
        // De esta zona se sale con un pulso del detector central
            if (pulsoCentro)
@@ -341,13 +414,20 @@ void ActualizaPendulo()
              T_zona_3 = min (10000, T_0 - T_3); 
              zona = 0;
            }
-             
        break;
     default: 
-      zona = 0;  // si por algun motivo la variable se sale de margenes vuelve a la zona 0
+    zona = 0;  // si por algun motivo la variable se sale de margenes vuelve a la zona 0
   }
-  
-  zonaAnterior = zona;
+
+  // ******SOLO CONTROL. SE BORRA AL FINAL   *******
+  if (zona != zonaAnterior)
+  {
+    Serial.print ("zona "); Serial.print (zonaAnterior);
+    Serial.print ("  ->  "); Serial.print (zona);
+    Serial.print ("   Extra T_on = "); Serial.print (map (analogRead (pot1), 0, 1023, 100, 0));
+    Serial.println ();
+  }
+
   
   
        // Si se supera el tiempo de encendido del electroiman o el de seguridad APAGA EL ELECTROIMAN
@@ -368,10 +448,22 @@ void ActualizaPendulo()
 int Escribe7SEG (float numero)
 {
   int longitud = 0;
-  longitud = Send7SEG (4, NumberLookup [int (numero)        % 10 + 10]);  // Ponemos el . decimal
-  longitud += Send7SEG (3, NumberLookup [int (numero * 10)   % 10]);
-  longitud += Send7SEG (2, NumberLookup [int (numero * 100)  % 10]);
-  longitud += Send7SEG (1, NumberLookup [int (numero * 1000) % 10]);
+  
+  if (numero > 0)
+  {
+    longitud =  Send7SEG (4, NumberLookup [int (numero)        % 10 + 10]);  // Ponemos el . decimal
+    longitud += Send7SEG (3, NumberLookup [int (numero * 10)   % 10]);
+    longitud += Send7SEG (2, NumberLookup [int (numero * 100)  % 10]);
+    longitud += Send7SEG (1, NumberLookup [int (numero * 1000) % 10]);
+  }
+  else 
+  {
+    for (int i = 1; i < 5; i++)
+    {
+      longitud +=  Send7SEG (4, B01010101);
+    }
+  }
+
   return longitud;
 }
 
