@@ -51,7 +51,7 @@ const int eAnalog = A3;      // Entrada analogica de ajuste
 // La ENTRADA  7 esta reservada como libre1 en el conector SENS_PEND
 
 
-int amplitud;
+float amplitud;
 int periodoPendulo;
 unsigned long T_Pendulo;
 String texto;
@@ -70,8 +70,8 @@ const byte NumberLookup[34] =   {
   0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x6F,  // digitos de 0 a 9
   0xBF,0x86,0xDB,0xCF,0xE6,0xED,0xFD,0x87,0xFF,0xEF,  // digitos con punto
   0x77,0x7C,0x39,0x5E,0x79,0x71,                      // A,B,C,D,E,F
-  0x00,0x40,0x63,0xE3,                  // espacio, guion, cuadro alto, cuadro bajo
-  0x80,0xC0,0x5C,0xDC};                 // idem con punto
+  0x00,0x40,0x63,0x5C,                  // espacio, guion, cuadro alto, cuadro bajo
+  0x80,0xC0,0xE3,0xDC};                 // idem con punto
 
 /***************************************************************************
  Function Name: setup
@@ -145,54 +145,11 @@ void loop()
   // Actualiza las variables asociadas al pendulo y enciende sus actuadores
     ActualizaPendulo();
     
-  // Actualiza el valor de la velocidad si se movio el cursor
+    
   if (encoderPos != encoderPosAnt)
   {
-    encoderPos = max(encoderPos, - maxEncoder);
-    encoderPos = min(encoderPos,   maxEncoder);
-    
-    // Calcula la posicion del cursor asumiendo un recorrido total de 100 cm y 10 vueltas (320 pulsos)
-    posicion  = 100.0 * float(encoderPos) / 320;
-    
-    if ((amplitud > 24) && (amplitud < 46))
-    {
-      if (abs(posicion) > amplitud)
-      {
-        velocidad = 9.999;
-      }
-      else
-      {
-        float velMaxima = 1.25;
-        velocidad = velMaxima * pow((1.0 - pow(posicion/amplitud, 2.0)), 0.5);
-      }
-    }
-    else velocidad = -99;
-    
-    
-    // velocidad = posicion;
- 
-    
-    
-    encoderPosAnt = encoderPos;
- 
-    Serial.print(" encoderPos : ");
-    Serial.print(encoderPos, DEC);
- 
-    Serial.print("\t");
-    Serial.print(" posicion cursor : ");
-    Serial.print(posicion,3);
-        
-    Serial.print("\t");
-    Serial.print(" velocidad : ");
-    Serial.print(velocidad,3);
-
-    Serial.println();
-    
-    Serial.print (" numero de bits enviados a Wire= ");
-    Serial.println ( Escribe7SEG (velocidad));
-    
-    
-    
+    // Actualiza el display
+    ActualizaDisplay();
   }
 }
 
@@ -271,7 +228,7 @@ void ActualizaPendulo()
            {
              // extraT_ON = T_zona_3 / 6 * map (analogRead (pot1), 0, 1023, 200, 100)/100.0;
              // extraT_ON = T_zona_3 / 6 * (max (min(T_zona_2, 650), 550) - 260)* 0.005;
-             extraT_ON = 31;
+             extraT_ON = map (analogRead (pot1), 0, 1023, 100, 0);
         
              // establece el valor  para T_OFF
              T_OFF     = T_0 + extraT_ON;
@@ -290,7 +247,7 @@ void ActualizaPendulo()
              T_Pendulo = T_0;            // corresponde al momento del paso por el centro en direccion 
                                          // contraria a la zona del sensor de control
              
-             int amplitudCalculada = 0.0002 * T_zona_2 * T_zona_2 - 0.1472 * T_zona_2 + 49.125;
+             float amplitudCalculada = 0.0002 * T_zona_2 * T_zona_2 - 0.1472 * T_zona_2 + 49.125;
              
              // Si falla alguno de los sensores y elperiodo registrado es excesivo no se tiene 
              //    en cuenta para el calculo de amplitud. Se incrementa el contador de errores
@@ -298,9 +255,13 @@ void ActualizaPendulo()
              if (periodoPendulo < 2000) 
              {
                erroresSensor = 0;
-               amplitud = amplitudCalculada;
+               amplitud = amplitud * 0.9 + amplitudCalculada * 0.1;
              }
 
+             
+             Serial.println("--------------------------------");
+             /*Serial.println (texto);
+             
              texto = "|  PerPend = " + String(T_zona_0 + T_zona_1 + T_zona_3) + " + " + T_zona_2;
              texto = texto + " = " + periodoPendulo;
 
@@ -310,22 +271,63 @@ void ActualizaPendulo()
              
              if (periodoPendulo < 2000) 
              {
-               texto = texto + "\t >> amplitud = " + amplitud + " (" + amplitud_max + ")";
+               texto = texto + "\t >> amplitud = " + int(amplitud) + " (" + amplitud_max + ")";
              }
              else
              {
                texto = texto + "\t >> Error sensores (" + erroresSensor + " (err)";
              }
+             */
+             
+             Serial.print ("|  PerPend = ");
+             Serial.print (T_zona_0 + T_zona_1 + T_zona_3);
+             Serial.print (" + ");
+             Serial.print (T_zona_2);
+             Serial.print (" = ");
+             Serial.print (periodoPendulo);
+ 
+             Serial.print ("\tTPendulo = ");
+             Serial.print (T_Pendulo);
+             
+             Serial.print ("\tT_iman = ");
+             Serial.print (T_zona_3);
+             Serial.print (" + ");
+             Serial.print (extraT_ON);
+             
+             if (periodoPendulo < 2000)
+             {
+               Serial.print ("\t >> amplitud = ");
+               Serial.print (amplitudCalculada ,2);
+               Serial.print (" / ");
+               Serial.print (amplitud);
+               Serial.print (" (");
+               Serial.print (amplitud_max);
+               Serial.print (")");
+             }
+             else
+             {
+               Serial.print ("\t >> Error sensores (");
+               Serial.print (erroresSensor);
+               Serial.print (" err)");
+             }
+
+             Serial.println ();             
+             
              
              // ***** SOLO CONTROL. BORRAR AL FINAL   *****
-             Serial.println("--------------------------------");
-             Serial.println (texto);
+             
              Serial.print ("    pot 1= "); Serial.print (analogRead (pot1)); Serial.print (" factor "); 
              Serial.println (min((T_zona_2 -260), 400) * 0.005, 3); 
              Serial.println ("--------------------------------");
 
              Serial.print   ("tiempo de impresion = ");
              Serial.println (millis () - T_1);
+             
+             
+             // Actualiza el display
+             ActualizaDisplay ();
+
+             
            }
     break;
  
@@ -342,7 +344,7 @@ void ActualizaPendulo()
                T_OFF       = T_Seguridad;
 
              // solo enciende electroiman si la amplitud es menor de la establecida
-               if (amplitud < amplitud_max)
+               if ((amplitud < amplitud_max) && ((T_zona_0 + T_zona_1 + T_zona_2 + T_zona_3) < 2000))
                  {
                    // Conecta el electroiman y LEDElectroMag como control
                    digitalWrite (ElectMag, HIGH);
@@ -449,7 +451,7 @@ int Escribe7SEG (float numero)
 {
   int longitud = 0;
   
-  if (numero > 0)
+  if (numero >= 0)
   {
     longitud =  Send7SEG (4, NumberLookup [int (numero)        % 10 + 10]);  // Ponemos el . decimal
     longitud += Send7SEG (3, NumberLookup [int (numero * 10)   % 10]);
@@ -460,7 +462,7 @@ int Escribe7SEG (float numero)
   {
     for (int i = 1; i < 5; i++)
     {
-      longitud +=  Send7SEG (4, B01010101);
+      longitud +=  Send7SEG (i, NumberLookup [27]);
     }
   }
 
@@ -527,3 +529,60 @@ void doEncoder() {
 
 
 
+
+
+
+
+
+
+void ActualizaDisplay ()
+{
+  // Actualiza el valor de la velocidad si se movio el cursor
+    encoderPos = max(encoderPos, - maxEncoder);
+    encoderPos = min(encoderPos,   maxEncoder);
+    
+    // Calcula la posicion del cursor asumiendo un recorrido total de 100 cm y 10 vueltas (320 pulsos)
+    posicion  = 100.0 * float(encoderPos) / 320;
+    
+    if ((amplitud > 24) && (amplitud < 46))
+    {
+      if (abs(posicion) > amplitud + 5)
+      {
+        velocidad = -1.0;
+      }
+      else if (abs(posicion) > amplitud)
+      {
+        velocidad = 0.0;
+      }
+      else
+      {
+        float velMaxima = 1.25;
+        velocidad = velMaxima * pow((1.0 - pow(posicion/amplitud, 2.0)), 0.5);
+      }
+    }
+    else velocidad = -99;
+    
+    
+    // velocidad = posicion;
+ 
+    
+    
+    encoderPosAnt = encoderPos;
+ 
+    Serial.print(" encoderPos : ");
+    Serial.print(encoderPos, DEC);
+ 
+    Serial.print("\t");
+    Serial.print(" posicion cursor : ");
+    Serial.print(posicion,3);
+        
+    Serial.print("\t");
+    Serial.print(" velocidad : ");
+    Serial.print(velocidad,3);
+
+    Serial.println();
+    
+    Serial.print (" numero de bits enviados a Wire= ");
+    Serial.println ( Escribe7SEG (velocidad)); 
+  
+}
