@@ -512,7 +512,7 @@ void doEncoder() {
   
   //if (digitalRead(encoder0PinA) == digitalRead(encoder0PinB)) {
   
-  if (!digitalRead (resetPin))
+  if (digitalRead (resetPin))
   {
     encoderPos = 0;
   }
