@@ -10,9 +10,43 @@ Basado en sistema de pendulo perpetuo por bombeo actualizado en 2015
 
 Sensores de barrera optica para el pendulo a traves de placa amplificadora
 */
-
-
 // ATENCION: LEVANTAR LA PATA 3 DEL CONECTOR SENS PEND //
+// ATENCION: LEVANTAR LA PATA 3 DEL CONECTOR SENS PEND //
+
+/* CONECTOR BARRERAS OPTICAS PENDULO SUB-D 9 MACHO EN CHASIS
+          1 -> Electroiman -                   (naranja)
+          2 -> Electroiman +                   (amarillo)
+          3 -> Comun barreras (Gnd)            (violeta + negro)
+          4 -> barrera centro: retorno         (verde)
+          5 -> Barrera centro: alimentacion    (azul)
+          6 -> Alimentacion LED + 24V          (rojo)
+          7 -> Alimentacion LED Gnd            (marron)
+          8 -> Barrera lateral: alimentacion   (gris)
+          9 -> Barrera lateral: retorno        (blanco)          */
+          
+/* CONECTOR ENCODER Y DISPLAY SUB-D 9 PINES HEMBRA EN CHASIS
+          1 -> Encoder canal A                 (Amarillo)
+          2 -> Alimentacion encoders + 5V      (Rojo)
+          3 -> libre
+          4 -> Alimentacion display + 9V       (Violeta)
+          5 -> I2C  - SDA                      (verde)
+          6 -> Encoder canal B                 (Naranja)
+          7 -> Alimentacion comun Gnd          (Marron)
+          8 -> libre
+          9 -> I2C  - SCL                      (Azul)            */
+
+/* CONECTOR BARRERA PASO CURSOR POR CERO DIN 5PINES 180º
+          1 -> libre
+          2 -> Comun Barreras Gnd              (Azul)
+          3 -> Alimentacion barrera            (Rojo + Gris)
+          4 -> libre
+          5 -> Retorno barrera                 (Blanco)          */
+
+/* CONECTOR DISPLAY I2C
+          1 -> Alimentacion display + 9V       (Violeta)
+          2 -> I2C  - SCL                      (Azul)
+          3 -> I2C  - SDA                      (verde)
+          4 -> Alimentacion display Gnd        (Gris)            */
 
 
 int maxEncoder = 160;   // indica el valor maximo del recorrido del encoder
