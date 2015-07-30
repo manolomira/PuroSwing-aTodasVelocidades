@@ -284,10 +284,10 @@ void ActualizaPendulo()
                                        // contraria a la zona del sensor de control
              
            float amplitudCalculada;
-           // float amplitudCalculada = 0.0002 * T_zona_2 * T_zona_2 - 0.1472 * T_zona_2 + 49.125;
+           amplitudCalculada = 0.0002 * T_zona_2 * T_zona_2 - 0.1472 * T_zona_2 + 49.125;
 
            // Nueva interpolacion lineal para T_2 entre 350 y 700 ms
-           amplitudCalculada = 0.0818 * T_zona_2 + 15.692;
+           // amplitudCalculada = 0.0818 * T_zona_2 + 15.692;
 
              
            // Si falla alguno de los sensores y elperiodo registrado es excesivo no se tiene 
@@ -424,7 +424,7 @@ void ActualizaPendulo()
   // Comprueba si el pendulo esta parado. Si no se recibe señal de las barreras en 10 segundos 
   // considera que el pendulo esta parado.
   penduloParado = false;
-  if (milisegundos > T_actualiza) penduloParado = true;
+  if (milisegundos > T_actualiza + 10000) penduloParado = true;
   
  
 }
@@ -534,7 +534,7 @@ void ActualizaDisplay ()
     if (!penduloParado)
     {
       // Calcula la posicion del cursor asumiendo un recorrido total de 100 cm y 10 vueltas (320 pulsos)
-      posicion  = 90.0 * float(encoderPos) / 300.0;
+      posicion  = 100.0 * float(encoderPos) / 300.0;
     
       if ((amplitud > 24) && (amplitud < 46))
       {
@@ -578,8 +578,8 @@ void ActualizaDisplay ()
       // Indica paro en el display. 
       // El texto aparece al mover el cursor, y desparece al moverlo otra vez, 
       // una vez que el pendulo vuelva a funcionar.
-      Send7SEG (4, B01110111);
-      Send7SEG (3, B01110011);
+      Send7SEG (4, B01110011);
+      Send7SEG (3, B01110111);
       Send7SEG (2, B01010000);
       Send7SEG (1, B01011100);
     }
