@@ -55,8 +55,8 @@ Reset pone el encoder en 10.
 La conversion es  posicion =  encoder * 830 / 300.   */
 
 
-int maxEncoder   = 2000;   // indica el valor maximo del recorrido del encoder
-int amplitud_max =   38;   // amplitud maxima de bombeo del pendulo
+int minEncoder = -160, maxEncoder = 140;   // indica loslimites del recorrido del encoder
+int amplitud_max =  38;                    // amplitud maxima de bombeo del pendulo
 
 
 
@@ -296,7 +296,10 @@ void ActualizaPendulo()
            if (periodoPendulo < 2000) 
            {
              erroresSensor = 0;
-             amplitud = amplitud * 0.9 + amplitudCalculada * 0.1;
+             // Si la diferencia con el valor medio no es muy grande calcula un nuevo valor 
+             // progresivo. En caso contrario toma como valido el nuevo valor.
+             if (abs (amplitud - amplitudCalculada) > 2.0) amplitud = amplitudCalculada * 0.1;
+             else amplitud = amplitud * 0.9 + amplitudCalculada * 0.1;
            }
 
             
@@ -424,7 +427,11 @@ void ActualizaPendulo()
   // Comprueba si el pendulo esta parado. Si no se recibe señal de las barreras en 10 segundos 
   // considera que el pendulo esta parado.
   penduloParado = false;
-  if (milisegundos > T_actualiza + 10000) penduloParado = true;
+  if (milisegundos > T_actualiza + 10000)
+  {
+    penduloParado = true;
+    ActualizaDisplay ();
+  }
   
  
 }
@@ -528,8 +535,9 @@ void doEncoder() {
 void ActualizaDisplay ()
 {
   // Actualiza el valor de la velocidad si se movio el cursor
-    encoderPos = max(encoderPos, - maxEncoder);
-    encoderPos = min(encoderPos,   maxEncoder);
+  // Comprueba que no se haya salido de limites
+    encoderPos = max(encoderPos, minEncoder);
+    encoderPos = min(encoderPos, maxEncoder);
     
     if (!penduloParado)
     {
